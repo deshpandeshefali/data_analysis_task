@@ -1,0 +1,73 @@
+# Internship Task 4: Sentiment Analysis using NLP
+# ------------------------------------------------
+# This notebook performs sentiment analysis on text data using NLP techniques and a basic machine learning model.
+
+# Step 1: Import Libraries
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+from sklearn.model_selection import train_test_split
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
+import nltk
+from nltk.corpus import stopwords
+from nltk.stem import PorterStemmer
+import re
+
+nltk.download('stopwords')
+
+# Step 2: Load Dataset
+# Using a public sample dataset of tweets with sentiment
+url = "https://raw.githubusercontent.com/dD2405/Twitter_Sentiment_Analysis/master/train.csv"
+df = pd.read_csv(url)
+df = df[['label', 'tweet']]
+df.columns = ['label', 'review']
+df['label'] = df['label'].map({0: 'Negative', 1: 'Positive'})
+print("Sample Data:")
+print(df.head())
+
+# Step 3: Preprocessing Text
+stop_words = set(stopwords.words("english"))
+stemmer = PorterStemmer()
+
+def preprocess(text):
+    text = re.sub(r"[^a-zA-Z]", " ", text)
+    text = text.lower().split()
+    text = [stemmer.stem(word) for word in text if word not in stop_words]
+    return " ".join(text)
+
+df['cleaned'] = df['review'].apply(preprocess)
+print("\nPreprocessed Sample:")
+print(df[['review', 'cleaned']].head())
+
+# Step 4: Vectorization (TF-IDF)
+tfidf = TfidfVectorizer(max_features=5000)
+X = tfidf.fit_transform(df['cleaned']).toarray()
+y = df['label']
+
+# Step 5: Train-Test Split
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Step 6: Model Training
+model = LogisticRegression()
+model.fit(X_train, y_train)
+
+# Step 7: Evaluation
+y_pred = model.predict(X_test)
+print("\nModel Evaluation:")
+print("Accuracy:", accuracy_score(y_test, y_pred))
+print("\nClassification Report:\n", classification_report(y_test, y_pred))
+
+# Confusion Matrix
+sns.heatmap(confusion_matrix(y_test, y_pred), annot=True, fmt='d', cmap='Blues')
+plt.xlabel("Predicted")
+plt.ylabel("Actual")
+plt.title("Confusion Matrix")
+plt.show()
+
+# Step 8: Conclusion
+print("\nConclusion:")
+print("- Sentiment analysis was performed on tweet data using NLP preprocessing techniques.")
+print("- Logistic Regression was used for classification with TF-IDF vectorized input.")
+print("- Accuracy is decent and can be improved using deep learning or transformer models like BERT.")
