@@ -1,0 +1,93 @@
+from pyspark.sql import SparkSession
+from pyspark.sql.functions import *
+
+# Step 1: Start Spark session
+spark = SparkSession.builder.appName("PizzaSalesAnalysis").getOrCreate()
+
+# Step 2: Load the CSV file
+df = spark.read.csv("pizza_sales.csv", header=True, inferSchema=True)
+
+# Step 3: Display schema and first few rows
+df.printSchema()
+df.show(5)
+
+# Step 4: KPI Calculations
+
+# 1. Total Revenue
+df.agg(sum("total_price").alias("Total Revenue")).show()
+
+# 2. Average Order Value
+df.selectExpr("sum(total_price)/count(distinct order_id) as Avg_Order_Value").show()
+
+# 3. Total Pizzas Sold
+df.agg(sum("quantity").alias("Total Pizzas Sold")).show()
+
+# 4. Total Orders
+df.select(countDistinct("order_id").alias("Total Orders")).show()
+
+# 5. Average Pizzas per Order
+df.selectExpr("CAST(SUM(quantity)/COUNT(DISTINCT order_id) AS DECIMAL(10,2)) AS Avg_Pizzas_Per_Order").show()
+
+# Step 5: Daily Trend for Orders
+df.withColumn("Day", date_format("order_date", "EEEE")) \
+  .groupBy("Day").agg(countDistinct("order_id").alias("Total Orders")) \
+  .orderBy("Day").show()
+
+# Step 6: Monthly Trend
+df.withColumn("Month", date_format("order_date", "MMMM")) \
+  .groupBy("Month").agg(countDistinct("order_id").alias("Total Orders")) \
+  .orderBy("Month").show()
+
+# Step 7: % of Sales by Pizza Category
+total_revenue = df.agg(sum("total_price")).first()[0]
+
+df.groupBy("pizza_category") \
+  .agg(round(sum("total_price"), 2).alias("Category_Revenue")) \
+  .withColumn("Percentage", round(col("Category_Revenue") * 100 / total_revenue, 2)) \
+  .show()
+
+# Step 8: % of Sales by Pizza Size
+df.groupBy("pizza_size") \
+  .agg(round(sum("total_price"), 2).alias("Size_Revenue")) \
+  .withColumn("Percentage", round(col("Size_Revenue") * 100 / total_revenue, 2)) \
+  .orderBy("pizza_size") \
+  .show()
+
+# Step 9: Top 5 Pizzas by Revenue
+df.groupBy("pizza_name") \
+  .agg(sum("total_price").alias("Total_Revenue")) \
+  .orderBy(col("Total_Revenue").desc()) \
+  .show(5)
+
+# Step 10: Bottom 5 Pizzas by Revenue
+df.groupBy("pizza_name") \
+  .agg(sum("total_price").alias("Total_Revenue")) \
+  .orderBy("Total_Revenue") \
+  .show(5)
+
+# Step 11: Top 5 by Quantity Sold
+df.groupBy("pizza_name") \
+  .agg(sum("quantity").alias("Total_Sold")) \
+  .orderBy(col("Total_Sold").desc()) \
+  .show(5)
+
+# Step 12: Bottom 5 by Quantity
+df.groupBy("pizza_name") \
+  .agg(sum("quantity").alias("Total_Sold")) \
+  .orderBy("Total_Sold") \
+  .show(5)
+
+# Step 13: Top 5 by Total Orders
+df.groupBy("pizza_name") \
+  .agg(countDistinct("order_id").alias("Total_Orders")) \
+  .orderBy(col("Total_Orders").desc()) \
+  .show(5)
+
+# Step 14: Bottom 5 by Orders
+df.groupBy("pizza_name") \
+  .agg(countDistinct("order_id").alias("Total_Orders")) \
+  .orderBy("Total_Orders") \
+  .show(5)
+
+# Done
+spark.stop()
